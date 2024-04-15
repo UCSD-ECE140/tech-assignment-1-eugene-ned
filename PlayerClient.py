@@ -75,10 +75,39 @@ if __name__ == '__main__':
     client.connect(broker_address, broker_port)
 
     # setting callbacks, use separate functions like above for better visibility
+
     client.on_subscribe = on_subscribe # Can comment out to not print when subscribing to new topics
     client.on_message = on_message
     client.on_publish = on_publish # Can comment out to not print when publishing to topics
+    client.loop_start()
 
+    # Dynamic game configuration
+    lobby_name = input("Enter lobby name: ")
+    player_name = input("Enter your player name: ")
+    team_name = input("Enter your team name: ")
+
+    # Register the player and subscribe to relevant topics
+    client.publish("new_game", json.dumps({
+        'lobby_name': lobby_name,
+        'team_name': team_name,
+        'player_name': player_name
+    }), qos=1)
+
+    client.subscribe(f"games/{lobby_name}/lobby")
+    client.subscribe(f"games/{lobby_name}/{player_name}/game_state")
+    client.subscribe(f"games/{lobby_name}/scores")
+
+    # Game Loop for movement commands
+    while True:
+        move = input("Enter your move (UP, DOWN, LEFT, RIGHT, STOP to end): ")
+        if move == "STOP":
+            client.publish(f"games/{lobby_name}/start", "STOP", qos=1)
+            break
+        client.publish(f"games/{lobby_name}/{player_name}/move", move, qos=1)
+
+    client.loop_stop()
+    client.disconnect()
+    '''
     lobby_name = "TestLobby"
     player_1 = "Player1"
     player_2 = "Player2"
@@ -109,3 +138,13 @@ if __name__ == '__main__':
 
 
     client.loop_forever()
+
+    gameOver = False
+    while not gameOver:
+        numPlayers = input("Number of players: ")
+        for i in numPlayers:
+            
+
+        move = input("Please enter a move: ")
+        player_move(client, move,)
+'''

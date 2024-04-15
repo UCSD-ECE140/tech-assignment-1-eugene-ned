@@ -214,8 +214,4 @@ if __name__ == '__main__':
     client.subscribe('games/+/start')
     client.subscribe('games/+/+/move')
 
-    gameover = False
-
-    while not gameover:
-        move = input("Please enter a move: ")
-        player_move(client, move,)
+    client.loop_forever()
