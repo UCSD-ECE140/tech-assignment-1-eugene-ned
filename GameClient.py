@@ -210,8 +210,8 @@ if __name__ == '__main__':
     client.game_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
     client.move_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
 
-    client.subscribe("new_game")
-    client.subscribe('games/+/start')
-    client.subscribe('games/+/+/move')
+    client.subscribe("new_game",qos=1)
+    client.subscribe('games/+/start',qos=1)
+    client.subscribe('games/+/+/move',qos=1)
 
     client.loop_forever()
