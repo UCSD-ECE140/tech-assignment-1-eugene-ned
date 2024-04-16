@@ -93,11 +93,12 @@ if __name__ == '__main__':
     lobby_name = "game_lobby"
 
     for i, player_name in enumerate(players):
+        
         userdata = {
         'player_name': player_name,
         'lobby_name': lobby_name
     }
-        client = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1, client_id=player_name, userdata=None, protocol=paho.MQTTv5)
+        client = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1, client_id=player_name, userdata=userdata, protocol=paho.MQTTv5)
         print(player_name)
         # enable TLS for secure connection
         client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
@@ -144,7 +145,12 @@ if __name__ == '__main__':
             client.publish(f"games/{lobby_name}/{player_name}/move", move, qos=1)
             '''
     client.publish(f"games/{lobby_name}/start", "START")
-    
+    while True:
+        for i,player_name in enumerate(players):
+            
+            move = "UP"
+            client.publish(f"games/{lobby_name}/{player_name}/move", move, qos=1)
+        break
 
     for client in clients:
             client.loop_stop()

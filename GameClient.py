@@ -209,7 +209,7 @@ if __name__ == '__main__':
     client.team_dict = {} # Keeps tracks of players before a game starts {'lobby_name' : {'team_name' : [player_name, ...]}}
     client.game_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
     client.move_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
-
+    
     client.subscribe("new_game",qos=1)
     client.subscribe('games/+/start',qos=1)
     client.subscribe('games/+/+/move',qos=1)
