@@ -30,7 +30,7 @@ client_sub.subscribe("topic/publisher2", qos=1)
 
 def subscriber_loop():
     while True:
-        client_sub.loop(timeout=1.0)  # timeout value can be adjusted
+        client_sub.loop(timeout=1.0)  
 
 def create_publisher(client_id, topic):
     client_pub = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1,client_id="276934ffc72b42bcb7e305f7d5676e58", protocol=paho.MQTTv5)

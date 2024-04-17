@@ -5,79 +5,56 @@ from dotenv import load_dotenv
 import paho.mqtt.client as paho
 from paho import mqtt
 import time
+import random
 
-
-# setting callbacks for different events to see if it works, print the message etc.
+#Code given by TA's
 def on_connect(client, userdata, flags, rc, properties=None):
-    """
-        Prints the result of the connection with a reasoncode to stdout ( used as callback for connect )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param flags: these are response flags sent by the broker
-        :param rc: stands for reasonCode, which is a code for the connection result
-        :param properties: can be used in MQTTv5, but is optional
-    """
     print("CONNACK received with code %s." % rc)
 
-
-# with this callback you can see if your publish was successful
 def on_publish(client, userdata, mid, properties=None):
-    """
-        Prints mid to stdout to reassure a successful publish ( used as callback for publish )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param properties: can be used in MQTTv5, but is optional
-    """
     print("mid: " + str(mid))
 
-
-# print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
-    """
-        Prints a reassurance for successfully subscribing
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param granted_qos: this is the qos that you declare when subscribing, use the same one for publishing
-        :param properties: can be used in MQTTv5, but is optional
-    """
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
 
-
-# print message, useful for checking if it was successful
-
 def on_message(client, userdata, msg):
-    """
-        Prints a mqtt message to stdout ( used as callback for subscribe )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param msg: the message with topic and payload
-    """
+    #print(f"Message received on {msg.topic}: {msg.payload.decode()}")
+    if msg.topic.endswith('/game_state'):
+        try:
+            data = json.loads(msg.payload.decode()) #load data 
+            curr_pos = data.get("currentPosition", [])
+            coins = data.get("coin1", []) + data.get("coin2", []) + data.get("coin3", [])
+            walls = data.get("walls", [])
 
-    print(f"Message received on {msg.topic}: {msg.payload}")
+            # move is random, but away from walls
+            move = random_valid_move(curr_pos, walls)
+            if move:
+                client.publish(f"games/{userdata['lobby_name']}/{userdata['player_name']}/move", move, qos=1)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+        except KeyError as e:
+            print(f"Key error in JSON data: {e}")
 
-    
+def random_valid_move(position, walls): #make a random move that strays from walls
+    moves = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+    valid_moves = []
+    for move in moves:
+        next_pos = simulate_move(position, move)
+        if next_pos not in walls:
+            valid_moves.append(move) #make sure next move is not in walls
+    return random.choice(valid_moves) if valid_moves else None
 
-def move_towards_coin(game_state, player_name):
-    # Extract player position and coin positions from game state
-    player_pos = game_state['players'][player_name]['position']
-    coins = game_state['coins']
-    if not coins:
-        return 'STOP'  # No more coins
-
-    # Find the nearest coin
-    nearest_coin = min(coins, key=lambda c: abs(c[0] - player_pos[0]) + abs(c[1] - player_pos[1]))
-    # Decide move based on relative position of the nearest coin
-    if nearest_coin[0] > player_pos[0]:
-        return 'DOWN'
-    elif nearest_coin[0] < player_pos[0]:
-        return 'UP'
-    elif nearest_coin[1] > player_pos[1]:
-        return 'RIGHT'
-    elif nearest_coin[1] < player_pos[1]:
-        return 'LEFT'
-
+def simulate_move(position, move):
+    x, y = position
+    if move == 'UP':
+        return [x - 1, y]
+    elif move == 'DOWN':
+        return [x + 1, y]
+    elif move == 'LEFT':
+        return [x, y - 1]
+    elif move == 'RIGHT':
+        return [x, y + 1]
+    return position
 
 if __name__ == '__main__':
     load_dotenv(dotenv_path='./credentials.env')
@@ -87,73 +64,43 @@ if __name__ == '__main__':
     username = os.environ.get('USER_NAME')
     password = os.environ.get('PASSWORD')
     
-    players = ['Player1', 'Player2', 'Player3', 'Player4']
+    players = ['Eugene', 'Ned', 'Ben', 'Matt']
     clients = []
-    team_name = ['TeamA', 'TeamB']
-    lobby_name = "game_lobby"
+    team_names = ['Ballers', 'Losers']
+    lobby_name = "GAME"
 
     for i, player_name in enumerate(players):
+        userdata = {'player_name': player_name, 'lobby_name': lobby_name}
+        client = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1,client_id=player_name, userdata=userdata, protocol=paho.MQTTv5)
         
-        userdata = {
-        'player_name': player_name,
-        'lobby_name': lobby_name
-    }
-        client = paho.Client(callback_api_version=paho.CallbackAPIVersion.VERSION1, client_id=player_name, userdata=userdata, protocol=paho.MQTTv5)
-        print(player_name)
-        # enable TLS for secure connection
         client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
-        # set username and password
         client.username_pw_set(username, password)
-        # connect to HiveMQ Cloud on port 8883 (default for MQTT)
         client.connect(broker_address, broker_port)
 
-        # setting callbacks, use separate functions like above for better visibility
-
-        client.on_subscribe = on_subscribe # Can comment out to not print when subscribing to new topics
+        client.on_subscribe = on_subscribe
         client.on_message = on_message
-        client.on_publish = on_publish # Can comment out to not print when publishing to topics
+        client.on_publish = on_publish
         client.loop_start()
 
-        # Dynamic game configuration
-        '''
-        lobby_name =  input("Enter lobby name: ")
-        player_name = input("Enter your player name: ")
-        team_name = input("Enter your team name: ")
-        '''
-        time.sleep(1)
-        client.subscribe(f"games/{lobby_name}/lobby",qos=1)
-        client.subscribe(f"games/{lobby_name}/{player_name}/game_state",qos=1)
-        client.subscribe(f'games/{lobby_name}/scores',qos=1)
-        
-        # Register the player and subscribe to relevant topics
+        client.subscribe(f"games/{lobby_name}/{player_name}/game_state", qos=1)
 
         client.publish("new_game", json.dumps({
             'lobby_name': lobby_name,
-            'team_name': team_name[i % 2],
+            'team_name': team_names[i % 2],
             'player_name': player_name
-        }),qos=1)
+        }), qos=1)
         clients.append(client)
-        '''
-        time.sleep(1)
-        client.publish(f"games/{lobby_name}/start", "START")
-        # Game Loop for movement commands
-        while True:
-            move = input("Enter your move (UP, DOWN, LEFT, RIGHT, STOP to end): ")
-            if move == "STOP":
-                client.publish(f"games/{lobby_name}/start", "STOP", qos=1)
-                break
-            client.publish(f"games/{lobby_name}/{player_name}/move", move, qos=1)
-            '''
-    client.publish(f"games/{lobby_name}/start", "START")
-    while True:
-        for i,player_name in enumerate(players):
-            
-            move = "UP"
-            client.publish(f"games/{lobby_name}/{player_name}/move", move, qos=1)
-        break
 
-    for client in clients:
+    time.sleep(1)  # wait and then start the game
+    clients[0].publish(f"games/{lobby_name}/start", "START", qos=1)
+
+    try:
+        # Keep the clients running, one for each player
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Game interrupted by user")
+    finally:
+        for client in clients:
             client.loop_stop()
             client.disconnect()
-    
- 
